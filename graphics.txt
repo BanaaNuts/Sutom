@@ -1,7 +1,7 @@
 // graphics.txt
 // Charte graphique du SUTOM
-// Les différents éléments sont séparés par '$', le début et la fin sont signalés par '$$'
-$
+// Les différents éléments sont séparés par '$', le début la fin sont signalés par un double '$'.
+$$
       ___           ___           ___           ___           ___     
      /\  \         /\__\         /\  \         /\  \         /\__\    
     /::\  \       /:/  /         \:\  \       /::\  \       /::|  |   
@@ -13,14 +13,13 @@ $
    \:\/:/  /     \:\/:/  /     \/__/         \:\/:/  /        /:/  /  
     \::/  /       \::/  /                     \::/  /        /:/  /   
      \/__/         \/__/                       \/__/         \/__/    
-
-_______________________________________________________________________
 $
 
+_______________________________________________________________________
 
                         Bienvenue au SUTOM !                    
        Jouez au fameux jeu de FranceTV depuis votre ordinateur !
-          Faites vos propositions pour trouver le mot caché.    
+          Faites vos propositions pour trouver le mot mystere.    
               Appuyez sur Enter pour lancer la partie.          
 
 
