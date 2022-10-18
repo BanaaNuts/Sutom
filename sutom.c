@@ -26,12 +26,17 @@ struct Grid {
     char sutomLetters[10]; //liste des lettres du mot mystère
     int lettersByQuantity[10]; //quantité pour chaque lettre (2*A, 1*B, 3*E,...)
     int nbSutomLetters; //nombre de lettres différentes dans le mot mystère
+    char advancement[10];   //avancement: lettres du mot mystères qui ont étés trouvées. Si pas trouvée: '?'
     long sutomIndex;       //index du mot mystère dans l'index
     int length;     //longueur du mot mystère
     int step;   //étape du jeu
+    int victory;    //victoire = 1, partie en cours ou défaite = 0
+    time_t startTime;    //Timestamp début de partie
+    time_t endTime;     //Timestamp fin de partie
 };
 
 struct Grid G;  //Grille comme variable globale
+struct tm sutomTime;
 
 //Renvoie l'index d'un char présent dans un tableau, si absent: -1
 int indexCharInTab(char tab[], int lenTab, char c) {
@@ -140,8 +145,8 @@ int isInvalid(char* word) {
     }
 }
 
-//Si le mot est valide, correction du mot
-void correction() {
+//Si le mot est valide, correction du mot. Renvoie 1 si le mot corrigé est le mot mystère.
+int correction() {
     int lettersToMark[10];       //nombre de lettres moins celles déjà marquées, initialement: =G.lettersByQuantity
     int markYellow;     //lettre à marquer en jaune ou pas: 0 = non
 
@@ -151,6 +156,7 @@ void correction() {
     for (int i=0;i<G.length;i++) {  //parcours pour les lettres rouges
         if (*(G.line[G.step]+i) == G.sutom[i]) {    //lettre correspondante
             G.isCorrect[G.step][i] = 'Y';
+            G.advancement[i] = G.sutom[i];
             lettersToMark[indexCharInTab(G.sutomLetters,G.nbSutomLetters,*(G.line[G.step]+i))]--; //une lettre de moins est à marquer. Exemple: un 'E' à été détécté comme correspondant, si il y a 2 'E' dans le mot mystère, il en reste alors 1 à potentiellement marquer en jaune ou rouge
         }
     }
@@ -158,7 +164,7 @@ void correction() {
         markYellow = 0;
         if (*(G.line[G.step]+i) != G.sutom[i]) {    //si la lettre ne correspond pas
             for (int j=0;j<G.nbSutomLetters;j++) {      //est-ce que lettre est présente dans le mot
-                printf("Lettre examen: %c / Lettre liste lettres: %c / Correspondance: %d\n",*(G.line[G.step]+i),G.sutomLetters[j],*(G.line[G.step]+i) == G.sutomLetters[j]);
+                //printf("Lettre examen: %c / Lettre liste lettres: %c / Correspondance: %d\n",*(G.line[G.step]+i),G.sutomLetters[j],*(G.line[G.step]+i) == G.sutomLetters[j]);
                 if (*(G.line[G.step]+i) == G.sutomLetters[j]) {
                     markYellow = (lettersToMark[indexCharInTab(G.sutomLetters,G.nbSutomLetters,*(G.line[G.step]+i))] > 0);  //markYellow = 1 uniquement si il y a encore des lettres à marquer (exemple: si il y a un seul 'E' dans le mot mystère et qu'il a déjà été marqué, alors markYellow=0)
                     break;
@@ -172,6 +178,20 @@ void correction() {
                 G.isCorrect[G.step][i] = 'N';
             }
         }
+    }
+    if (!strcmp(G.line[G.step],G.sutom)) {
+        return 1;
+    }
+    else {
+        if (G.step < 5) {   //sur la prochaine ligne: indication des lettres déjà trouvées
+            for (int i=0; i<G.length;i++) {
+                if (G.advancement[i] != '?') {
+                    G.isCorrect[G.step+1][i] = 'Y';
+                    G.line[G.step+1][i] = G.sutom[i];
+                }
+            }
+        }
+        return 0;
     }
 }
 
@@ -198,6 +218,7 @@ void initGrid() {
     //strcpy(G.sutom,"SOLIDITE\0");
     //G.sutomIndex = 0;
 
+    G.victory = 0;
     G.length = strlen(G.sutom);
     G.step = 0;
     for (int i=0;i<6;i++) {
@@ -206,6 +227,10 @@ void initGrid() {
            G.isCorrect[i][j] = '?';
         }
         G.line[i][G.length] = '\0';
+    }
+    //avancement
+    for (int i=0;i<G.length;i++) {
+        G.advancement[i] = '?';
     }
     //Init de la liste des lettres du mot mystère
     int nbLetters = 0;  //taille de la liste de lettres
@@ -268,7 +293,7 @@ void printBigWord(int nbLine) {
     printf("\n");
     for (int i=0;i<L_HEIGHT;i++) {
         printf(" ");    //marge gauche
-        for (int j=0;j<strlen(G.line[nbLine]);j++) {    //Deuxième ligne: 1ère ligne des lettres selon le schéma suivant: contour-caractères de la lettre-contour
+        for (int j=0;j<strlen(G.line[nbLine]);j++) {    //Deuxième ligne: 1ère ligne des lettres selon le schéma suivant: contour-caractèreS_de_la_lettre-contour
             switch (G.isCorrect[nbLine][j]) {
                 case 'Y':
                     aroundLetter[0] = 186;
@@ -287,6 +312,9 @@ void printBigWord(int nbLine) {
                     break;
             }
             printf("%c%s%c", aroundLetter[0], lettersGraphicsTab[G.line[nbLine][j]-'A'+1][i], aroundLetter[0]);
+        }
+        if (i == (L_HEIGHT-1)/2 && nbLine == G.step) {
+            printf("<");
         }
         printf("\n");
     }
@@ -324,6 +352,7 @@ void printBigWord(int nbLine) {
 
 //Affiche la grille
 void printGrid() {
+    //Première ligne: contour
     printf("%c",201);
     for (int i=0;i<L_WIDTH+2;i++) { printf("%c",205); }
     for (int i=0;i<G.length-1;i++) { printf(""); for (int i=0;i<L_WIDTH+2;i++) { printf("%c",205); }}
@@ -338,7 +367,7 @@ void printGrid() {
     printf("%c\n",188);
 }
 
-//Affiche le logo SUTOM
+//Affiche un élément graphique de `graphics.txt`
 void printGraphicElement(int e) {
     int temp;
     fseek(graphics,graphicsElementsCursors[e],SEEK_SET);
@@ -347,6 +376,14 @@ void printGraphicElement(int e) {
         printf("%c", temp);
         temp = fgetc(graphics);
     }
+}
+
+//Affiche la barre d'info
+void printInfoBar() {
+    printf("Sutom v0.3 | Tentative %d/6 | ",G.step+1);
+    time_t currentTimestamp = time(NULL);
+    struct tm currentTime = *(localtime(&currentTimestamp));
+    printf("%4d-%2d-%2d %02d:%02d:%02d \n****************************************\n",currentTime.tm_year+1900,currentTime.tm_mon+1,currentTime.tm_mday,currentTime.tm_hour,currentTime.tm_min,currentTime.tm_sec);
 }
 
 //Stockage des éléments graphiques en mémoire
@@ -360,16 +397,18 @@ void getGraphics() {
             }
         }
     }
+    while(fgetc(graphics) != '\n') { ; }
     //LOGO
     graphicsElementsCursors[0] = ftell(graphics);
     while(fgetc(graphics) != '$') { ; }
+    while(fgetc(graphics) != '\n') { ; }
     //ACCUEIL
     graphicsElementsCursors[1] = ftell(graphics);
     while(fgetc(graphics) != '$') { ; }
-    //Lettres /!\ A cet endroit dans le fichier: placer le jeu de caractère souhaité ! Donc les lettres simples ou les gros caractères
+    while(fgetc(graphics) != '\n') { ; }
+    //POLICE /!\ A cet endroit dans le fichier: placer le jeu de caractère souhaité ! Donc les lettres simples ou les gros caractères
     //Les lettres sont placées dans la RAM (tableau à deux dimension)
     graphicsElementsCursors[2] = ftell(graphics);
-    fgetc(graphics);
     for (int i=0;i<L_HEIGHT;i++) {
         for (int j=0;j<28;j++) {
             fgets(lettersGraphicsTab[j][i],L_WIDTH+1,graphics);
@@ -395,6 +434,7 @@ int main() {
         
         printf("Mot %-6d : %s\n",G.sutomIndex,G.sutom);
         char proposition[30];
+        char temp[29];
         strcpy(proposition,G.sutom);
         int invalidity = 0;
         for (G.step;G.step<6;G.step++) {
@@ -402,6 +442,7 @@ int main() {
             G.isCorrect[G.step][0] = 'Y';
             do {    //Affichage de la grille et input du mot proposé: répété tant que le mot est invalide
                 clearscr();
+                printInfoBar();
                 printGrid(&G);
                 if (invalidity) {
                     printf("\a");   //Caractère BEL (produit un son)
@@ -430,18 +471,43 @@ int main() {
                 else {
                     printf("\n");
                 }
-                printf("> Proposez un mot:\t");
-                fgets(proposition,20,stdin);
-                proposition[strcspn(proposition,"\n")] = '\0'; //supprime le caractère \n pris en compte par fgets()
+                printf("                       ");
+                if (!G.step) {
+                    printf("%c",G.sutom[0]);
+                    for (int i=1;i<G.length;i++) { printf("_"); }
+                }
+                else {
+                    printf("%c",G.sutom[0]);
+                    for (int i=1;i<G.length;i++) {
+                        if (G.advancement[i] != '?') { printf("%c",G.sutom[i]); }
+                        else { printf("_"); }
+                        
+                    }
+                }
+                printf("\n> Proposez un mot:     %c",G.sutom[0]);   //première lettre déjà placée
+                proposition[0] = G.sutom[0];
+                proposition[1] = '\0';
+                fgets(temp,19,stdin);
+                temp[strcspn(temp,"\n")] = '\0'; //supprime le caractère \n pris en compte par fgets()
+                strcat(proposition,temp);
                 cleanWord(proposition);
                 invalidity = isInvalid(proposition);
             } while (invalidity);
             strcpy(G.line[G.step],proposition);
-            correction();
+            if (correction()) {
+                G.victory = 1;
+                break;
+            }
         }
         clearscr();
+        printInfoBar();
         printGrid(&G);
-        
+        if (G.victory) {
+            printf("\nVictoire !\n");
+        }
+        else {
+            printf("\nPerdu... Le mot myst%cre %ctait: %s",138,130,G.sutom);
+        }
 
         getchar();
     }
